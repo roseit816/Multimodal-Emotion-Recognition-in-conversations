@@ -265,6 +265,8 @@ def run_single_mode(cfg, device, checkpoint_path, conv_index=0):
         row += f"  → pred={label_names[preds_list[i]]}"
         print(row)
     print("  (* = predicted class)\n")
+    print(".")
+    print("Added feature.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
