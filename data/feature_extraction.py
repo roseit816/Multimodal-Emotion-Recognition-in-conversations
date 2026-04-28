@@ -87,6 +87,7 @@ def extract_audio_features(
         if output_dim > 300 else opensmile.FeatureSet.GeMAPSv01b,
         feature_level=opensmile.FeatureLevel.Functionals,
     )
+    
 
     feats = []
     for path in audio_paths:
@@ -228,3 +229,4 @@ def build_meld_features(
         "Please adapt this function to your local MELD directory structure.\n"
         "See: https://affective-meld.github.io/"
     )
+print(".")

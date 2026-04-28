@@ -1,6 +1,3 @@
-"""
-predict.py — Run predictions using a trained SDT model.
-
 Three modes:
   1. quick   — train on synthetic data for 3 epochs, then predict (no real data needed)
   2. test    — load checkpoint, predict on synthetic test set, show metrics + per-utterance output
@@ -344,3 +341,4 @@ if __name__ == "__main__":
 
     elif args.mode == "single":
         run_single_mode(cfg, device, args.checkpoint, conv_index=args.conv_index)
+
