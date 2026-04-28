@@ -95,6 +95,7 @@ if __name__ == "__main__":
     print("  EmotiSense — SDT Multimodal Emotion Recognition")
     print("  Paper: IEEE TMM 2024  |  Equations: 1–21")
     print("=" * 60 + "\n")
+    print("feature added")
 
     if os.path.exists(CHECKPOINT):
         print(f"[Launcher] Found checkpoint: {CHECKPOINT}\n")
