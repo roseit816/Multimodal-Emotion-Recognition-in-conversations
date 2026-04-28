@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>EmotiSense — SDT Emotion Recognition</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0d17;--bg2:#12142a;--bg3:#191c30;--bg4:#20243a;--bg5:#272b44;
+  --bdr:#2b2f4a;--bdr2:#3a3f62;
+  --tx:#dde1ff;--mu:#6872a8;--hi:#3e4468;
+  --ac:#5865f2;--ac2:#7983f5;--ac3:#adb5ff;
+  --gr:#22c55e;--rd:#ef4444;--am:#f59e0b;--pu:#a855f7;--te:#14b8a6;
+  --r:10px;--rs:7px;
+}
+html,body{height:100%;background:var(--bg);color:var(--tx);
+  font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.6;overflow:hidden}
+
+/* 3-column layout */
+.app{display:grid;grid-template-columns:250px 1fr 280px;height:100vh}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+
+/* ── LEFT SIDEBAR ─────────────────────────────────────────────────────────── */
+.left{background:var(--bg2);border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;overflow:hidden}
+
+.logo{padding:15px 14px 11px;border-bottom:1px solid var(--bdr)}
+.logo h1{font-size:15px;font-weight:700;letter-spacing:-.2px;
+  background:linear-gradient(120deg,#5865f2,#a855f7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo p{font-size:10px;color:var(--mu);margin-top:2px}
+
+/* status dot */
+.mstat{padding:9px 14px;border-bottom:1px solid var(--bdr);
+  display:flex;align-items:center;gap:7px;font-size:11px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--rd)}
+.dot.on{background:var(--gr);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* dataset */
+.ds-wrap{padding:9px 12px;border-bottom:1px solid var(--bdr)}
+.lbl{font-size:10px;color:var(--hi);text-transform:uppercase;
+  letter-spacing:.07em;display:block;margin-bottom:5px}
+.ds-row{display:flex;gap:5px}
+.dsb{flex:1;padding:6px 5px;border-radius:var(--rs);
+  border:1px solid var(--bdr2);background:var(--bg3);color:var(--mu);
+  cursor:pointer;font-size:11px;text-align:center;line-height:1.3;transition:all .15s}
+.dsb small{display:block;font-size:9px;color:var(--hi);margin-top:1px}
+.dsb.active{background:rgba(88,101,242,.18);border-color:var(--ac);color:var(--ac3)}
+.dsb.active small{color:var(--ac2)}
+
+/* mode list */
+.sec{padding:8px 12px 4px;font-size:10px;font-weight:600;
+  color:var(--hi);text-transform:uppercase;letter-spacing:.07em}
+.nav{padding:0 8px 4px;display:flex;flex-direction:column;gap:2px}
+.nb{display:flex;align-items:center;gap:7px;width:100%;padding:7px 8px;
+  border-radius:var(--rs);border:1px solid transparent;background:none;
+  color:var(--mu);cursor:pointer;font-size:12px;text-align:left;transition:all .15s}
+.nb:hover{background:var(--bg3);color:var(--tx)}
+.nb.active{background:rgba(88,101,242,.15);border-color:rgba(88,101,242,.4);color:var(--ac2)}
+.nb .ni{font-size:14px;width:18px;text-align:center}
+.tag{margin-left:auto;font-size:9px;padding:1px 5px;border-radius:6px;font-weight:600}
+.tag.ds{background:var(--te);color:#fff}
+.tag.best{background:var(--ac);color:#fff}
+
+/* extractor status */
+.ext-wrap{padding:8px 12px;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr)}
+.ext-row{display:flex;justify-content:space-between;font-size:10px;padding:1px 0}
+.ext-row .en{color:var(--mu)}
+.ok{color:var(--gr)}.warn{color:var(--am)}
+
+/* history */
+.hist{flex:1;overflow-y:auto;padding:4px 8px}
+.hi{display:flex;align-items:center;gap:6px;padding:6px 7px;
+  border-radius:var(--rs);margin-bottom:2px;background:var(--bg3)}
+.hi-e{font-size:14px}.hi-info{flex:1;min-width:0}
+.hi-n{font-weight:600;font-size:11px}.hi-s{font-size:10px;color:var(--mu);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hi-t{font-size:10px;color:var(--hi)}
+
+.rst{margin:7px 10px 9px;padding:7px;background:none;border:1px solid var(--bdr);
+  border-radius:var(--rs);color:var(--mu);cursor:pointer;font-size:11px;
+  width:calc(100% - 20px);transition:all .15s}
+.rst:hover{border-color:var(--rd);color:var(--rd)}
+
+/* ── MAIN ────────────────────────────────────────────────────────────────── */
+.main{display:flex;flex-direction:column;overflow:hidden}
+
+.mhead{padding:11px 18px;border-bottom:1px solid var(--bdr);background:var(--bg2);
+  display:flex;align-items:center;gap:10px;flex-shrink:0}
+.mhead h2{font-size:14px;font-weight:600}
+.mhead p{font-size:11px;color:var(--mu)}
+.mbadges{margin-left:auto;display:flex;gap:4px}
+.mb{padding:2px 7px;border-radius:8px;font-size:10px;font-weight:500}
+.mb.t{background:rgba(88,101,242,.2);color:#adb5ff}
+.mb.a{background:rgba(34,197,94,.2);color:#4ade80}
+.mb.v{background:rgba(245,158,11,.2);color:#fcd34d}
+
+.msgs{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+
+/* welcome */
+.welcome{text-align:center;padding:38px 16px;color:var(--mu)}
+.welcome .we{font-size:46px;margin-bottom:9px}
+.welcome h3{font-size:16px;color:var(--tx);margin-bottom:7px}
+.welcome p{font-size:12px;max-width:380px;margin:0 auto;line-height:1.7}
+
+/* bubbles */
+.msg{display:flex;gap:7px;max-width:92%}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:12px;flex-shrink:0;margin-top:2px}
+.user .av{background:rgba(88,101,242,.3)}.bot .av{background:rgba(168,85,247,.3)}
+.mb2{display:flex;flex-direction:column;gap:3px}
+.bub{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5}
+.user .bub{background:rgba(88,101,242,.2);border-bottom-right-radius:3px}
+.bot  .bub{background:var(--bg3);border-bottom-left-radius:3px}
+.meta{font-size:10px;color:var(--mu);display:flex;gap:5px}
+.user .meta{justify-content:flex-end}
+
+/* media previews in chat */
+.preview-audio{margin-top:5px}
+.preview-audio audio{width:100%;border-radius:6px;height:32px}
+.preview-video video{width:100%;max-height:130px;border-radius:7px;
+  background:#000;display:block;margin-top:5px}
+
+/* typing dots */
+.typing{display:flex;gap:4px;padding:9px 13px;background:var(--bg3);
+  border-radius:14px;border-bottom-left-radius:3px;width:fit-content}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--mu);
+  animation:ty 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes ty{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+/* emotion result card */
+.ecard{background:var(--bg2);border:1px solid var(--bdr);
+  border-radius:var(--r);padding:12px;margin-top:4px;min-width:240px;max-width:400px}
+.etop{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.eemoji{font-size:34px;line-height:1}
+.einfo h3{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.einfo .conf{font-size:11px;color:var(--mu);margin-top:1px}
+.einfo .ctx{font-size:10px;color:var(--hi)}
+.pbars{display:flex;flex-direction:column;gap:4px}
+.pr{display:flex;align-items:center;gap:6px}
+.pr .pl{font-size:11px;width:86px;white-space:nowrap;overflow:hidden;
+  display:flex;align-items:center;gap:3px}
+.pr .pt{flex:1;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.pr .pf{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.pr .pp{font-size:10px;color:var(--mu);width:32px;text-align:right}
+.mods{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--bdr)}
+.mpill{padding:2px 6px;border-radius:7px;font-size:10px}
+.mpill.on{opacity:1}.mpill.off{opacity:.2}
+.srcinfo{margin-left:auto;font-size:10px;color:var(--mu)}
+
+/* ── INPUT AREA ──────────────────────────────────────────────────────────── */
+.iarea{border-top:1px solid var(--bdr);background:var(--bg2);
+  padding:11px 16px 13px;flex-shrink:0}
+
+/* ━━ UPLOAD PANEL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.upanel{display:none;background:var(--bg3);border:1px solid var(--bdr2);
+  border-radius:var(--r);padding:12px;margin-bottom:10px}
+.upanel.show{display:block}
+
+.uhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.uhead h4{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+.uhead .dstag{background:rgba(88,101,242,.2);color:var(--ac3);
+  padding:2px 7px;border-radius:5px;font-size:10px}
+.uclose{background:none;border:none;color:var(--mu);cursor:pointer;
+  font-size:16px;padding:2px 5px;border-radius:4px;line-height:1}
+.uclose:hover{color:var(--rd)}
+
+/* Upload type tabs */
+.utabs{display:flex;gap:5px;margin-bottom:10px}
+.ut{padding:5px 11px;border-radius:var(--rs);border:1px solid var(--bdr2);
+  background:none;color:var(--mu);cursor:pointer;font-size:12px;
+  font-weight:500;transition:all .15s;display:flex;align-items:center;gap:4px}
+.ut:hover{color:var(--tx);background:var(--bg4)}
+.ut.active{background:rgba(88,101,242,.18);border-color:var(--ac);color:var(--ac2)}
+
+/* Drop zones */
+.dz{border:2px dashed var(--bdr2);border-radius:var(--rs);padding:14px 10px;
+  text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.dz:hover,.dz.hover{border-color:var(--ac);background:rgba(88,101,242,.05)}
+.dz.loaded{border-color:var(--gr);border-style:solid;background:rgba(34,197,94,.05)}
+.dz input[type=file]{position:absolute;inset:0;opacity:0;
+  cursor:pointer;width:100%;height:100%}
+.dz-icon{font-size:20px;margin-bottom:3px;display:block}
+.dz-main{font-size:12px;color:var(--tx);font-weight:500}
+.dz-sub{font-size:10px;color:var(--mu);margin-top:2px}
+.dz-name{font-size:11px;color:var(--gr);font-weight:600;
+  margin-top:4px;word-break:break-all}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* inline media previews in upload panel */
+.up-preview{margin-top:7px;display:none}
+.up-preview audio{width:100%;border-radius:6px;height:34px}
+.up-preview video{width:100%;max-height:120px;border-radius:6px;
+  background:#000;display:block}
+
+/* transcript */
+.tr-row{margin-top:8px}
+.tr-row .lbl{margin-bottom:4px}
+.tr-row input{width:100%;background:var(--bg4);border:1px solid var(--bdr2);
+  border-radius:var(--rs);color:var(--tx);font-size:12px;padding:7px 10px;
+  outline:none;transition:border-color .15s}
+.tr-row input:focus{border-color:var(--ac)}
+.tr-row input::placeholder{color:var(--hi)}
+
+/* Predict button */
+.pbtn{width:100%;margin-top:10px;padding:9px;background:var(--ac);
+  border:none;border-radius:var(--rs);color:#fff;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;
+  justify-content:center;gap:7px}
+.pbtn:hover{background:var(--ac2);transform:translateY(-1px)}
+.pbtn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.pbtn.loading .spin{display:block}
+.pbtn.loading .btxt{display:none}
+
+/* camera + recording strips */
+.cstrip{display:none;background:var(--bg3);border-radius:var(--rs);
+  margin-bottom:8px;padding:8px;align-items:center;gap:8px}
+.cstrip.show{display:flex}
+#camvid{width:96px;height:64px;object-fit:cover;border-radius:5px;background:#000}
+.cinfo{flex:1;font-size:11px}
+.cinfo p{color:var(--mu);font-size:10px;margin-top:2px}
+.cclose{background:none;border:none;color:var(--mu);cursor:pointer;font-size:15px}
+
+.rstrip{display:none;background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.3);border-radius:var(--rs);
+  padding:7px 11px;margin-bottom:8px;align-items:center;gap:7px}
+.rstrip.show{display:flex}
+.rdot{width:7px;height:7px;border-radius:50%;background:var(--rd);animation:blink 1s infinite}
+.rtxt{flex:1;font-size:11px;color:var(--rd)}
+#rtimer{font-size:11px;color:var(--rd);font-weight:700;min-width:32px}
+.rstop{background:var(--rd);border:none;color:#fff;padding:3px 10px;
+  border-radius:5px;cursor:pointer;font-size:11px}
+
+/* bottom input row */
+.irow{display:flex;align-items:flex-end;gap:6px}
+.itools{display:flex;gap:4px}
+.tool{width:34px;height:34px;border-radius:7px;border:1px solid var(--bdr);
+  background:var(--bg3);color:var(--mu);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;transition:all .15s}
+.tool:hover{border-color:var(--ac);color:var(--ac2);background:rgba(88,101,242,.1)}
+.tool.rec-on{border-color:var(--rd);color:var(--rd);background:rgba(239,68,68,.1);animation:blink 1s infinite}
+.tool.cam-on{border-color:var(--am);color:var(--am);background:rgba(245,158,11,.1)}
+.tool.upl-on{border-color:var(--te);color:var(--te);background:rgba(20,184,166,.1)}
+
+.txtwrap{flex:1}
+#msgtxt{width:100%;background:var(--bg3);border:1px solid var(--bdr);
+  border-radius:var(--rs);color:var(--tx);font-size:13px;padding:8px 11px;
+  resize:none;min-height:36px;max-height:100px;font-family:inherit;
+  outline:none;transition:border-color .15s}
+#msgtxt:focus{border-color:var(--ac)}
+#msgtxt::placeholder{color:var(--hi)}
+
+.send{width:36px;height:36px;border-radius:7px;border:none;background:var(--ac);
+  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;transition:all .15s}
+.send:hover{background:var(--ac2);transform:scale(1.05)}
+
+.hint{font-size:10px;color:var(--hi);margin-top:5px;text-align:center}
+
+/* ── RIGHT PANEL ─────────────────────────────────────────────────────────── */
+.right{background:var(--bg2);border-left:1px solid var(--bdr);
+  display:flex;flex-direction:column;overflow-y:auto}
+.rp{padding:13px 14px;border-bottom:1px solid var(--bdr)}
+.rp h3{font-size:10px;font-weight:600;color:var(--hi);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+
+/* gauge */
+.gauge{text-align:center;padding:3px 0}
+.ge{font-size:48px;display:block;margin-bottom:4px}
+.gl{font-size:17px;font-weight:700;letter-spacing:-.3px;margin-bottom:2px}
+.gc{font-size:11px;color:var(--mu);margin-bottom:7px}
+.gb{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.gf{height:100%;background:var(--ac);border-radius:3px;transition:width .5s ease}
+
+/* breakdown */
+.erows{display:flex;flex-direction:column;gap:4px}
+.er{display:flex;align-items:center;gap:5px}
+.er .ei{font-size:12px;width:17px;text-align:center}
+.er .en{font-size:11px;width:78px}
+.er .et{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.er .ef{height:100%;border-radius:3px;transition:width .5s ease}
+.er .ep{font-size:10px;color:var(--mu);width:28px;text-align:right}
+
+/* stats */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sc{background:var(--bg3);border-radius:var(--rs);padding:8px;text-align:center}
+.sv{font-size:18px;font-weight:700}.sl{font-size:10px;color:var(--mu);margin-top:1px}
+.dist{display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:7px}
+.dw{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  height:100%;justify-content:flex-end}
+.db{width:100%;border-radius:2px 2px 0 0;min-height:2px;transition:height .4s ease}
+.dl{font-size:8px;color:var(--mu)}
+
+/* model info */
+.mi p{font-size:11px;color:var(--mu);margin-bottom:4px;display:flex}
+.mi span{color:var(--tx);font-weight:500;margin-left:auto}
+.eirow{display:flex;justify-content:space-between;font-size:10px;padding:2px 0}
+.eirow .en{color:var(--mu)}
+
+/* toast */
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+  background:#1a0d0d;border:1px solid var(--rd);color:#fca5a5;
+  padding:8px 14px;border-radius:var(--r);font-size:12px;z-index:9999;
+  animation:fi .2s ease;pointer-events:none;max-width:460px;text-align:center}
+@keyframes fi{from{opacity:0;transform:translateX(-50%) translateY(7px)}
+  to{opacity:1;transform:translateX(-50%)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ LEFT SIDEBAR ═════════════════════════════════════════════════════════ -->
+<div class="left">
+  <div class="logo">
+    <h1>🧠 EmotiSense</h1>
+    <p>SDT · IEEE TMM 2024 · Eq. 1–21</p>
+  </div>
+
+  <div class="mstat">
+    <div class="dot" id="mdot"></div>
+    <span id="mstatus">Connecting…</span>
+  </div>
+
+  <div class="ds-wrap">
+    <span class="lbl">Dataset</span>
+    <div class="ds-row">
+      <div class="dsb active" id="dsA" onclick="setDS('iemocap')">
+        IEMOCAP <small>6 emotions</small>
+      </div>
+      <div class="dsb" id="dsB" onclick="setDS('meld')">
+        MELD <small>7 emotions</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">Input Mode</div>
+  <div class="nav">
+    <button class="nb" data-m="audio_upload" onclick="setMode('audio_upload')">
+      <span class="ni">🎵</span> Audio Upload <span class="tag ds">Dataset</span>
+    </button>
+    <button class="nb" data-m="video_upload" onclick="setMode('video_upload')">
+      <span class="ni">🎬</span> Video Upload <span class="tag ds">Dataset</span>
+    </button>
+    <button class="nb" data-m="both_upload" onclick="setMode('both_upload')">
+      <span class="ni">⚡</span> Audio+Video <span class="tag best">Best</span>
+    </button>
+    <button class="nb active" data-m="text" onclick="setMode('text')">
+      <span class="ni">💬</span> Text Only
+    </button>
+  </div>
+
+  <div class="ext-wrap">
+    <span class="lbl">Extractors</span>
+    <div class="eirow"><span class="en">Text (1024-d)</span>  <span id="xt" class="warn">…</span></div>
+    <div class="eirow"><span class="en">Audio (300-d)</span>  <span id="xa" class="warn">…</span></div>
+    <div class="eirow"><span class="en">Visual (342-d)</span> <span id="xv" class="warn">…</span></div>
+  </div>
+
+  <div class="sec">History</div>
+  <div class="hist" id="hist">
+    <div style="color:var(--hi);font-size:11px;padding:4px 6px">No predictions yet</div>
+  </div>
+  <button class="rst" onclick="resetConv()">🔄 Reset Conversation</button>
+  <a href="/analytics" target="_blank" style="display:block;margin:0 10px 10px;padding:7px;
+    background:var(--ac);border:none;border-radius:var(--rs);color:#fff;
+    text-align:center;font-size:11px;font-weight:600;text-decoration:none;
+    transition:all .15s;">📊 View Analytics</a>
+</div>
+
+<!-- ══ MAIN ═════════════════════════════════════════════════════════════════ -->
+<div class="main">
+  <div class="mhead">
+    <div>
+      <h2 id="htitle">SDT Emotion Recognition</h2>
+      <p id="hsub">Select a mode from the sidebar</p>
+    </div>
+    <div class="mbadges">
+      <span class="mb t" id="bt">T</span>
+      <span class="mb a" id="ba" style="opacity:.2">A</span>
+      <span class="mb v" id="bv" style="opacity:.2">V</span>
+    </div>
+  </div>
+
+  <div class="msgs" id="msgs">
+    <div class="welcome">
+      <div class="we">🎭</div>
+      <h3>Upload Dataset Files to Predict Emotions</h3>
+      <p>Select <strong>Audio Upload</strong> or <strong>Video Upload</strong> from the sidebar to upload files from the IEMOCAP or MELD dataset. The SDT model (Equations&nbsp;1–21) predicts emotions from your files.</p>
+    </div>
+  </div>
+
+  <div class="iarea">
+
+    <!-- ━━ DATASET UPLOAD PANEL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="upanel" id="upanel">
+      <div class="uhead">
+        <h4>📂 Upload Dataset File
+          <span class="dstag" id="dstag">IEMOCAP</span>
+        </h4>
+        <button class="uclose" onclick="closePanel()">✕</button>
+      </div>
+
+      <!-- tabs -->
+      <div class="utabs">
+        <button class="ut active" id="ta" onclick="switchTab('audio')">🎵 Audio</button>
+        <button class="ut"        id="tv" onclick="switchTab('video')">🎬 Video</button>
+        <button class="ut"        id="tb" onclick="switchTab('both')">⚡ Both</button>
+      </div>
+
+      <!-- AUDIO TAB -->
+      <div id="tab-audio">
+        <div class="dz" id="dz-a"
+             ondragover="dzOver(event,'dz-a')" ondragleave="dzLeave('dz-a')"
+             ondrop="dzDrop(event,'a')">
+          <input type="file" id="fi-a" accept=".wav,.mp3,.flac,.ogg,.m4a"
+                 onchange="pickFile(this,'a')"/>
+          <span class="dz-icon">🎵</span>
+          <div class="dz-main">Click or drag audio file here</div>
+          <div class="dz-sub">WAV · MP3 · FLAC · OGG · M4A — from IEMOCAP or MELD</div>
+          <div class="dz-name" id="fn-a"></div>
+        </div>
+        <div class="up-preview" id="prev-a">
+          <audio id="aplayer" controls></audio>
+        </div>
+      </div>
+
+      <!-- VIDEO TAB -->
+      <div id="tab-video" style="display:none">
+        <div class="dz" id="dz-v"
+             ondragover="dzOver(event,'dz-v')" ondragleave="dzLeave('dz-v')"
+             ondrop="dzDrop(event,'v')">
+          <input type="file" id="fi-v" accept=".mp4,.avi,.mov,.mkv"
+                 onchange="pickFile(this,'v')"/>
+          <span class="dz-icon">🎬</span>
+          <div class="dz-main">Click or drag video file here</div>
+          <div class="dz-sub">MP4 · AVI · MOV · MKV — from IEMOCAP or MELD</div>
+          <div class="dz-name" id="fn-v"></div>
+        </div>
+        <div class="up-preview" id="prev-v">
+          <video id="vplayer" controls></video>
+        </div>
+      </div>
+
+      <!-- BOTH TAB -->
+      <div id="tab-both" style="display:none">
+        <div class="two-col">
+          <div>
+            <div class="dz" id="dz-ba"
+                 ondragover="dzOver(event,'dz-ba')" ondragleave="dzLeave('dz-ba')"
+                 ondrop="dzDrop(event,'ba')">
+              <input type="file" id="fi-ba" accept=".wav,.mp3,.flac,.ogg,.m4a"
+                     onchange="pickFile(this,'ba')"/>
+              <span class="dz-icon">🎵</span>
+              <div class="dz-main" style="font-size:11px">Audio file</div>
+              <div class="dz-sub">WAV / MP3 / FLAC</div>
+              <div class="dz-name" id="fn-ba"></div>
+            </div>
+          </div>
+          <div>
+            <div class="dz" id="dz-bv"
+                 ondragover="dzOver(event,'dz-bv')" ondragleave="dzLeave('dz-bv')"
+                 ondrop="dzDrop(event,'bv')">
+              <input type="file" id="fi-bv" accept=".mp4,.avi,.mov,.mkv"
+                     onchange="pickFile(this,'bv')"/>
+              <span class="dz-icon">🎬</span>
+              <div class="dz-main" style="font-size:11px">Video file</div>
+              <div class="dz-sub">MP4 / AVI / MOV</div>
+              <div class="dz-name" id="fn-bv"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- transcript (optional) -->
+      <div class="tr-row">
+        <span class="lbl">Transcript (optional — improves accuracy)</span>
+        <input type="text" id="transcript"
+               placeholder="Type the utterance text here, e.g. I can't believe what happened…"/>
+      </div>
+
+      <!-- predict button -->
+      <button class="pbtn" id="pbtn" onclick="submitUpload()">
+        <div class="spin"></div>
+        <span class="btxt">🔍 Predict Emotion</span>
+      </button>
+    </div>
+    <!-- ━━ END UPLOAD PANEL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+
+    <!-- Text + tool row -->
+    <div class="irow">
+      <div class="itools">
+        <button class="tool" id="tupl" title="Upload dataset file" onclick="togglePanel()">📂</button>
+      </div>
+      <div class="txtwrap">
+        <textarea id="msgtxt" rows="1"
+          placeholder="Type text for emotion prediction…"
+          oninput="autoH(this)" onkeydown="onKey(event)"></textarea>
+      </div>
+      <button class="send" onclick="sendLive()">➤</button>
+    </div>
+    <div class="hint" id="hint">Enter to send · 📂 to upload audio/video files</div>
+  </div>
+</div>
+
+<!-- ══ RIGHT PANEL ═══════════════════════════════════════════════════════════ -->
+<div class="right">
+
+  <div class="rp">
+    <h3>Live Emotion</h3>
+    <div class="gauge">
+      <span class="ge" id="ge">🎭</span>
+      <div class="gl" id="gl">—</div>
+      <div class="gc" id="gc">Waiting…</div>
+      <div class="gb"><div class="gf" id="gf" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="rp">
+    <h3>Emotion Breakdown</h3>
+    <div class="erows" id="erows"></div>
+  </div>
+
+  <div class="rp">
+    <h3>Session Stats</h3>
+    <div class="sg">
+      <div class="sc"><div class="sv" id="stot">0</div><div class="sl">Predictions</div></div>
+      <div class="sc"><div class="sv" id="sdom">—</div><div class="sl">Top Emotion</div></div>
+    </div>
+    <div class="dist" id="dist"></div>
+  </div>
+
+  <div class="rp mi">
+    <h3>Model</h3>
+    <p>Paper <span>IEEE TMM 2024</span></p>
+    <p>Equations <span>Eq. 1–21</span></p>
+    <p>Device <span id="rdev">—</span></p>
+    <p>Context <span id="rctx">0 utt.</span></p>
+    <p>Dataset <span id="rds">IEMOCAP</span></p>
+    <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--bdr)">
+      <div class="eirow"><span class="en">Text</span>  <span id="ri-t" class="warn">…</span></div>
+      <div class="eirow"><span class="en">Audio</span> <span id="ri-a" class="warn">…</span></div>
+      <div class="eirow"><span class="en">Visual</span><span id="ri-v" class="warn">…</span></div>
+    </div>
+  </div>
+
+</div>
+</div><!-- .app -->
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const IEMOCAP_L = ["joy/excited","sadness","anger","neutral","surprise","fear"];
+const MELD_L    = ["neutral","surprise","fear","sadness","joy","disgust","anger"];
+const EMO_EMOJI = ["😄","😢","😠","😐","😲","😨","🤢"];
+const EMO_COLOR = ["#f59e0b","#3b82f6","#ef4444","#6b7280","#8b5cf6","#06b6d4","#a855f7"];
+
+// ── App state ─────────────────────────────────────────────────────────────────
+let ds        = "iemocap";
+let labels    = IEMOCAP_L;
+let mode      = "text";
+let activeTab = "audio";
+let panelOpen = false;
+// file handles
+let files = { a:null, v:null, ba:null, bv:null };
+let stats = { total:0, emotions:{} };
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", () => {
+  checkStatus();
+  buildEmoRows();
+  buildDist();
+  setInterval(checkStatus, 15000);
+});
+
+async function checkStatus() {
+  try {
+    const d = await (await fetch("/api/status")).json();
+    document.getElementById("mdot").classList.toggle("on", d.model_loaded);
+    document.getElementById("mstatus").textContent = d.model_loaded ? "Model ready" : "Not loaded";
+    document.getElementById("rdev").textContent    = d.device || "cpu";
+    document.getElementById("rctx").textContent    = (d.history_len||0) + " utt.";
+    const ext = d.extractors || {};
+    updExt("xt","ri-t", ext.text);
+    updExt("xa","ri-a", ext.audio);
+    updExt("xv","ri-v", ext.visual);
+  } catch(e) {
+    document.getElementById("mstatus").textContent = "Offline";
+  }
+}
+function updExt(sid, rid, info) {
+  const real = info && info.real;
+  const name = info ? info.name : "—";
+  for (const id of [sid, rid]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.textContent = real ? "✅ " + name : "⚠️ fallback";
+    el.className   = real ? "ok" : "warn";
+  }
+}
+
+// ── Dataset ───────────────────────────────────────────────────────────────────
+function setDS(d) {
+  ds     = d;
+  labels = d === "meld" ? MELD_L : IEMOCAP_L;
+  document.getElementById("dsA").classList.toggle("active", d === "iemocap");
+  document.getElementById("dsB").classList.toggle("active", d === "meld");
+  document.getElementById("dstag").textContent = d.toUpperCase();
+  document.getElementById("rds").textContent   = d.toUpperCase();
+  buildEmoRows(); buildDist();
+}
+
+// ── Mode ──────────────────────────────────────────────────────────────────────
+const MODE_INFO = {
+  audio_upload:{ title:"Audio File Upload",    sub:"Upload .wav/.mp3/.flac from IEMOCAP/MELD", a:1,v:0 },
+  video_upload:{ title:"Video File Upload",    sub:"Upload .mp4/.avi from IEMOCAP/MELD",       a:1,v:1 },
+  both_upload: { title:"Audio + Video Upload", sub:"Both files — all 3 modalities active",     a:1,v:1 },
+  text:        { title:"Text Prediction",      sub:"Type an utterance for text-only emotion",  a:0,v:0 },
+};
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll(".nb").forEach(b => b.classList.toggle("active", b.dataset.m === m));
+  const info = MODE_INFO[m] || { title: m, sub:"", a:0, v:0 };
+  document.getElementById("htitle").textContent = info.title;
+  document.getElementById("hsub").textContent   = info.sub;
+  document.getElementById("ba").style.opacity   = info.a ? "1" : "0.2";
+  document.getElementById("bv").style.opacity   = info.v ? "1" : "0.2";
+
+  if (m === "audio_upload") { openPanel(); switchTab("audio"); }
+  else if (m === "video_upload") { openPanel(); switchTab("video"); }
+  else if (m === "both_upload")  { openPanel(); switchTab("both"); }
+  else closePanel();
+}
+
+// ── Upload panel open/close ───────────────────────────────────────────────────
+function openPanel() {
+  panelOpen = true;
+  document.getElementById("upanel").classList.add("show");
+  document.getElementById("tupl").classList.add("upl-on");
+}
+function closePanel() {
+  panelOpen = false;
+  document.getElementById("upanel").classList.remove("show");
+  document.getElementById("tupl").classList.remove("upl-on");
+}
+function togglePanel() { panelOpen ? closePanel() : openPanel(); }
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(t) {
+  activeTab = t;
+  document.getElementById("ta").classList.toggle("active", t==="audio");
+  document.getElementById("tv").classList.toggle("active", t==="video");
+  document.getElementById("tb").classList.toggle("active", t==="both");
+  document.getElementById("tab-audio").style.display = t==="audio" ? "block" : "none";
+  document.getElementById("tab-video").style.display = t==="video" ? "block" : "none";
+  document.getElementById("tab-both").style.display  = t==="both"  ? "block" : "none";
+}
+
+// ── Drag-and-drop helpers ─────────────────────────────────────────────────────
+function dzOver(e, id) {
+  e.preventDefault();
+  document.getElementById(id).classList.add("hover");
+}
+function dzLeave(id) {
+  document.getElementById(id).classList.remove("hover");
+}
+function dzDrop(e, key) {
+  e.preventDefault();
+  document.getElementById("dz-"+key).classList.remove("hover");
+  const file = e.dataTransfer.files[0];
+  if (file) applyFile(file, key);
+}
+function pickFile(input, key) {
+  if (input.files[0]) applyFile(input.files[0], key);
+}
+
+function applyFile(file, key) {
+  files[key] = file;
+  const url  = URL.createObjectURL(file);
+  document.getElementById("fn-"+key).textContent = "✅ " + file.name;
+  document.getElementById("dz-"+key).classList.add("loaded");
+
+  // show inline preview
+  if (key === "a") {
+    document.getElementById("aplayer").src = url;
+    document.getElementById("prev-a").style.display = "block";
+  } else if (key === "v") {
+    document.getElementById("vplayer").src = url;
+    document.getElementById("prev-v").style.display = "block";
+  }
+  // ba / bv have no preview players to keep the 2-col compact
+}
+
+// ── Submit upload to server ───────────────────────────────────────────────────
+async function submitUpload() {
+  const transcript = document.getElementById("transcript").value.trim();
+  const btn = document.getElementById("pbtn");
+
+  let endpoint = "";
+  const fd     = new FormData();
+  fd.append("dataset", ds);
+  if (transcript) fd.append("text", transcript);
+
+  // decide endpoint and attach files
+  if (activeTab === "audio") {
+    if (!files.a) { toast("Select an audio file first"); return; }
+    endpoint = "/api/predict/audio_upload";
+    fd.append("audio", files.a);
+
+  } else if (activeTab === "video") {
+    if (!files.v) { toast("Select a video file first"); return; }
+    endpoint = "/api/predict/video_upload";
+    fd.append("video", files.v);
+
+  } else {
+    // both
+    if (!files.ba && !files.bv) { toast("Select at least one file"); return; }
+    endpoint = "/api/predict/multimodal";
+    if (files.ba) fd.append("audio", files.ba);
+    if (files.bv) fd.append("video", files.bv);
+  }
+
+  // figure out display text for user bubble
+  const dispText = transcript ||
+    (activeTab==="audio" ? files.a?.name :
+     activeTab==="video" ? files.v?.name :
+     [files.ba?.name, files.bv?.name].filter(Boolean).join(" + ")) || "[File upload]";
+
+  // show user bubble with optional inline media players
+  addUserBubble(dispText,
+    activeTab === "audio" ? files.a   : activeTab === "both" ? files.ba  : null,
+    activeTab === "video" ? files.v   : activeTab === "both" ? files.bv  : null);
+
+  btn.classList.add("loading");
+  btn.disabled = true;
+  showTyping();
+
+  try {
+    const resp = await fetch(endpoint, { method:"POST", body:fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || "Server error " + resp.status);
+    removeTyping();
+    addBotBubble(data);
+    updateRight(data);
+    addHist(data, dispText);
+    updateStats(data);
+    checkStatus();
+  } catch(e) {
+    removeTyping();
+    toast("Error: " + e.message);
+    console.error(e);
+  } finally {
+    btn.classList.remove("loading");
+    btn.disabled = false;
+  }
+}
+
+// ── Text send ─────────────────────────────────────────────────────────────────
+async function sendLive() {
+  const txt = document.getElementById("msgtxt").value.trim();
+  document.getElementById("msgtxt").value = "";
+  autoH(document.getElementById("msgtxt"));
+
+  if (!txt) { toast("Type a message to predict emotion"); return; }
+
+  addUserBubble(txt, null, null);
+  showTyping();
+
+  try {
+    const result = await postJSON("/api/predict/text", { text:txt, dataset:ds });
+    removeTyping();
+    addBotBubble(result);
+    updateRight(result);
+    addHist(result, txt);
+    updateStats(result);
+    checkStatus();
+  } catch(e) {
+    removeTyping();
+    toast("Error: " + e.message);
+  }
+}
+
+async function postJSON(url, body) {
+  const r = await fetch(url, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || "Server error");
+  return d;
+}
+
+// ── Chat rendering ────────────────────────────────────────────────────────────
+function addUserBubble(text, audioFile, videoFile) {
+  const msgs = document.getElementById("msgs");
+  const w    = msgs.querySelector(".welcome");
+  if (w) w.remove();
+
+  let mediaHtml = "";
+  if (audioFile) {
+    const url = URL.createObjectURL(audioFile);
+    mediaHtml += `<div class="preview-audio"><audio controls src="${url}"></audio></div>`;
+  }
+  if (videoFile) {
+    const url = URL.createObjectURL(videoFile);
+    mediaHtml += `<div class="preview-video"><video controls src="${url}"></video></div>`;
+  }
+
+  const d = document.createElement("div");
+  d.className = "msg user";
+  d.innerHTML = `
+    <div class="av">👤</div>
+    <div class="mb2">
+      <div class="bub">${esc(text)}</div>
+      ${mediaHtml}
+      <div class="meta">${now()}</div>
+    </div>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const msgs = document.getElementById("msgs");
+  const d = document.createElement("div");
+  d.id = "typing"; d.className = "msg bot";
+  d.innerHTML = `<div class="av">🧠</div>
+    <div class="mb2"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+}
+function removeTyping() { const t=document.getElementById("typing"); if(t) t.remove(); }
+
+function addBotBubble(r) {
+  const msgs = document.getElementById("msgs");
+  const d    = document.createElement("div");
+  d.className = "msg bot";
+
+  const typeLabel = {
+    audio_upload:"🎵 Audio File", video_upload:"🎬 Video File",
+    multimodal:"⚡ Audio+Video",  text:"💬 Text",
+    live_audio:"🎙️ Mic",          live_video:"📷 Camera"
+  }[r.input_type] || r.input_type;
+
+  const ma   = r.modalities_active || {};
+  const prs  = (r.probabilities||[]).map(p=>`
+    <div class="pr">
+      <span class="pl">${p.emoji} ${p.label}</span>
+      <div class="pt"><div class="pf" style="width:${(p.prob*100).toFixed(1)}%;background:${p.color}"></div></div>
+      <span class="pp">${(p.prob*100).toFixed(1)}%</span>
+    </div>`).join("");
+
+  const msTag = `<span style="background:rgba(88,101,242,.2);color:var(--ac3);
+    padding:1px 6px;border-radius:4px;font-size:9px">${(r.dataset||"").toUpperCase()}</span>`;
+  const msInfo= r.processing_ms ? `${r.processing_ms}ms` : "";
+
+  d.innerHTML = `
+    <div class="av">🧠</div>
+    <div class="mb2">
+      <div class="bub">Prediction from ${typeLabel} ${msTag}</div>
+      <div class="ecard">
+        <div class="etop">
+          <span class="eemoji">${r.emoji}</span>
+          <div class="einfo">
+            <h3 style="color:${r.color}">${(r.emotion||"").toUpperCase()}</h3>
+            <div class="conf">Confidence: ${((r.confidence||0)*100).toFixed(1)}%</div>
+            <div class="ctx">Context: ${r.context_length||1} utterances</div>
+          </div>
+        </div>
+        <div class="pbars">${prs}</div>
+        <div class="mods">
+          <span class="mpill on" style="background:rgba(88,101,242,.2);color:#adb5ff">Text</span>
+          <span class="mpill ${ma.audio ?'on':'off'}" style="background:rgba(34,197,94,.2);color:#4ade80">Audio</span>
+          <span class="mpill ${ma.visual?'on':'off'}" style="background:rgba(245,158,11,.2);color:#fcd34d">Visual</span>
+          <span class="srcinfo">${typeLabel} ${msInfo}</span>
+        </div>
+      </div>
+      <div class="meta">${now()}</div>
+    </div>`;
+  msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── Right panel ───────────────────────────────────────────────────────────────
+function updateRight(r) {
+  document.getElementById("ge").textContent = r.emoji;
+  document.getElementById("gl").textContent = (r.emotion||"").toUpperCase();
+  document.getElementById("gl").style.color  = r.color;
+  document.getElementById("gc").textContent  = `Confidence: ${((r.confidence||0)*100).toFixed(1)}%`;
+  document.getElementById("gf").style.width  = ((r.confidence||0)*100)+"%";
+  document.getElementById("gf").style.background = r.color;
+
+  document.getElementById("erows").innerHTML = (r.probabilities||[]).map(p=>`
+    <div class="er">
+      <span class="ei">${p.emoji}</span>
+      <span class="en">${p.label}</span>
+      <div class="et"><div class="ef" style="width:${(p.prob*100).toFixed(1)}%;background:${p.color}"></div></div>
+      <span class="ep">${(p.prob*100).toFixed(1)}%</span>
+    </div>`).join("");
+}
+
+function buildEmoRows() {
+  document.getElementById("erows").innerHTML = labels.map((l,i)=>`
+    <div class="er">
+      <span class="ei">${EMO_EMOJI[i]||"?"}</span>
+      <span class="en">${l}</span>
+      <div class="et"><div class="ef" style="width:0%;background:${EMO_COLOR[i]}"></div></div>
+      <span class="ep">0%</span>
+    </div>`).join("");
+}
+
+function buildDist() {
+  document.getElementById("dist").innerHTML = labels.map((l,i)=>`
+    <div class="dw">
+      <div class="db" id="db${i}" style="height:2px;background:${EMO_COLOR[i]}"></div>
+      <span class="dl">${EMO_EMOJI[i]||"?"}</span>
+    </div>`).join("");
+}
+
+function updateStats(r) {
+  stats.total++;
+  const eid = r.emotion_id ?? 0;
+  stats.emotions[eid] = (stats.emotions[eid]||0)+1;
+  document.getElementById("stot").textContent = stats.total;
+  let mx=0,mi=0;
+  Object.entries(stats.emotions).forEach(([i,c])=>{ if(c>mx){mx=c;mi=+i;} });
+  document.getElementById("sdom").textContent = EMO_EMOJI[mi]||"—";
+  const maxv = Math.max(...Object.values(stats.emotions), 1);
+  labels.forEach((_,i) => {
+    const b = document.getElementById("db"+i);
+    if (b) b.style.height = Math.max(2, ((stats.emotions[i]||0)/maxv)*36)+"px";
+  });
+}
+
+function addHist(r, text) {
+  const hw = document.getElementById("hist");
+  const pl = hw.querySelector("div[style]"); if(pl) pl.remove();
+  const snip = text.length>24 ? text.slice(0,24)+"…" : text;
+  const item = document.createElement("div");
+  item.className = "hi";
+  item.innerHTML = `<span class="hi-e">${r.emoji}</span>
+    <div class="hi-info">
+      <div class="hi-n" style="color:${r.color}">${r.emotion}</div>
+      <div class="hi-s">${esc(snip)}</div>
+    </div>
+    <span class="hi-t">${now()}</span>`;
+  hw.insertBefore(item, hw.firstChild);
+  while(hw.children.length > 12) hw.removeChild(hw.lastChild);
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+async function resetConv() {
+  await fetch("/api/reset", { method:"POST" });
+  document.getElementById("msgs").innerHTML = `
+    <div class="welcome">
+      <div class="we">🔄</div>
+      <h3>Conversation Reset</h3>
+      <p>History cleared. Upload new files to start fresh.</p>
+    </div>`;
+  document.getElementById("hist").innerHTML =
+    `<div style="color:var(--hi);font-size:11px;padding:4px 6px">No predictions yet</div>`;
+  stats = { total:0, emotions:{} };
+  document.getElementById("stot").textContent = "0";
+  document.getElementById("sdom").textContent = "—";
+  document.getElementById("ge").textContent   = "🎭";
+  document.getElementById("gl").textContent   = "—";
+  document.getElementById("gc").textContent   = "Waiting…";
+  document.getElementById("gf").style.width   = "0%";
+  buildEmoRows(); buildDist();
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function onKey(e) { if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendLive(); } }
+function autoH(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,100)+"px"; }
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function now(){ return new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); }
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = "⚠️ " + msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Core ML
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.21.0
+scikit-learn>=1.0.0
+
+# Web server
+flask>=2.3.0
+flask-cors>=4.0.0
+werkzeug>=2.3.0
+
+# Text: RoBERTa-Large
+transformers>=4.30.0
+
+# Audio: openSMILE (primary)
+opensmile>=2.4.0
+
+# Audio: librosa fallback
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# Visual: DenseNet + video frame extraction
+opencv-python>=4.5.0
