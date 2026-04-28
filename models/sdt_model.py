@@ -322,6 +322,7 @@ class ModalityEncoder(nn.Module):
         H_t = self.proj_t(text)
         H_a = self.proj_a(audio)
         H_v = self.proj_v(visual)
+        
 
         # ── Eq. 2: Positional embeddings ─────────────────────────────────────
         Z_t = self.pos_t(H_t)
@@ -680,6 +681,7 @@ class SDTModel(nn.Module):
             )
             out["loss"] = total_loss
             out.update(loss_components)
+            print("successfully completed")
 
         return out
 
