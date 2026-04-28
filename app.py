@@ -38,6 +38,7 @@ MELD_LABELS   = ["neutral","surprise","fear","sadness","joy","disgust","anger"]
 MELD_EMOJI    = ["😐","😲","😨","😢","😄","🤢","😠"]
 MELD_COLORS   = ["#6b7280","#8b5cf6","#06b6d4","#3b82f6","#f59e0b","#10b981","#ef4444"]
 MELD_MAP      = {l:i for i,l in enumerate(MELD_LABELS)}
+print("Feature Added.")
 
 MODEL = CFG = None
 DEVICE = "cpu"
