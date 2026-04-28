@@ -1,6 +1,3 @@
-"""
-main.py — Entry point for SDT multimodal ERC.
-
 Usage examples:
   # Train on IEMOCAP with real data
   python main.py --dataset iemocap --mode train
@@ -127,3 +124,4 @@ def main():
 if __name__ == "__main__":
     print("Added feature")
     main()
+
