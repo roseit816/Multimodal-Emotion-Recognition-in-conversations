@@ -115,7 +115,7 @@ def collate_fn(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
     out["lengths"] = torch.stack([item["length"] for item in batch])
     return out
     print("Added feature.")
-
+    print(".")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Feature normalization helper
