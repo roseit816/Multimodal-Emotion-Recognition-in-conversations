@@ -99,6 +99,7 @@ def predict_conversation(
         audio    = batch["audio"].to(device)
         visual   = batch["visual"].to(device)
         speakers = batch["speakers"].to(device)
+        print(".")
         mask     = batch["mask"].to(device)
 
         out   = model(text, audio, visual, speakers, mask)
