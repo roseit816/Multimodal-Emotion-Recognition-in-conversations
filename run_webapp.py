@@ -102,7 +102,6 @@ if __name__ == "__main__":
         print("[Launcher] No checkpoint — running quick training (~60s on CPU)…\n")
         train_quick()
 
-    threading.Thread(target=open_browser, daemon=True).start()
     print(f"[Launcher] Server → http://localhost:{PORT}")
     print("[Launcher] Ctrl+C to stop\n")
 
