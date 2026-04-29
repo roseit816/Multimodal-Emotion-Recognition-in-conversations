@@ -1,5 +1,9 @@
+"""
+SDT: Self-Distillation Transformer for Multimodal ERC
+Paper: "A Transformer-Based Model With Self-Distillation for
+        Multimodal Emotion Recognition in Conversations"
+IEEE TMM, 2024
 
-<<<<<<< HEAD
 This module implements the COMPLETE architecture as described in the paper,
 equation by equation.
 """
@@ -318,7 +322,6 @@ class ModalityEncoder(nn.Module):
         H_t = self.proj_t(text)
         H_a = self.proj_a(audio)
         H_v = self.proj_v(visual)
-        
 
         # ── Eq. 2: Positional embeddings ─────────────────────────────────────
         Z_t = self.pos_t(H_t)
@@ -677,7 +680,6 @@ class SDTModel(nn.Module):
             )
             out["loss"] = total_loss
             out.update(loss_components)
-            print("successfully completed")
 
         return out
 
@@ -727,5 +729,3 @@ def build_model(cfg) -> SDTModel:
         gamma2=m.gamma2,
         gamma3=m.gamma3,
     )
-=======
->>>>>>> 066387944dd1debdb6e6a0cb0c3c9ac963b478d7
