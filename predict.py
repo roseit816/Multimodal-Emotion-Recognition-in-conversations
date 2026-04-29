@@ -1,4 +1,4 @@
-Three modes:
+"""Three modes:
   1. quick   — train on synthetic data for 3 epochs, then predict (no real data needed)
   2. test    — load checkpoint, predict on synthetic test set, show metrics + per-utterance output
   3. single  — predict on one specific conversation and show emotion probabilities
