@@ -30,6 +30,7 @@ def load_checkpoint(
     model.eval()
     print(f"[Inference] Loaded model from {checkpoint_path} (epoch {ckpt.get('epoch', '?')})")
     return model
+    print(".")
 # ─────────────────────────────────────────────────────────────────────────────
 # Batch-level prediction (loader-based)
 # ─────────────────────────────────────────────────────────────────────────────
