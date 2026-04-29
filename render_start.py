@@ -14,7 +14,30 @@ def index():
     if _real_app:
         return send_from_directory(
             os.path.join(_WEBAPP_DIR, "templates"), "index.html")
-    return "<h1>EmotiSense is starting up... Please refresh in 60 seconds.</h1>", 200
+    return """
+    <html>
+    <head>
+        <title>EmotiSense Loading...</title>
+        <meta http-equiv="refresh" content="10">
+        <style>
+            body { font-family: Arial; display: flex; justify-content: center; 
+                   align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; }
+            .box { text-align: center; }
+            h1 { color: #06b6d4; }
+            p { color: #94a3b8; }
+            .spinner { font-size: 50px; animation: spin 2s linear infinite; display: inline-block; }
+            @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <div class="spinner">⚙️</div>
+            <h1>EmotiSense is starting up...</h1>
+            <p>Loading AI models, please wait. Page refreshes automatically every 10 seconds.</p>
+        </div>
+    </body>
+    </html>
+    """, 200
 
 @app.route('/api/status')
 def status():
