@@ -1,182 +1,140 @@
-
 """
-Inference module for SDT.
-After training, predictions come ONLY from the trained model's
-teacher EmotionClassifier — no heuristics or rule-based shortcuts.
+arc_analysis.py  —  Emotional Arc Analysis (Novelty Feature)
+=============================================================
+Analyses the SEQUENCE of emotion predictions across a conversation
+to reveal patterns that per-utterance prediction alone cannot capture.
+
+Three functions:
+  detect_shifts      — every consecutive utterance where emotion changed
+  classify_arc       — labels the overall conversation arc type
+  build_arc_summary  — single call returning everything for the frontend
 """
-import os
-from typing import Dict, List, Optional, Tuple
-import torch
-import numpy as np
-from torch.utils.data import DataLoader
-from models.sdt_model import SDTModel, build_model
-from data.dataset import ConversationSample, MultimodalDataset, collate_fn
-from utils.metrics import compute_metrics, full_evaluation_report, get_label_names
-from configs.config import Config
-# ─────────────────────────────────────────────────────────────────────────────
-# Checkpoint loader
-# ─────────────────────────────────────────────────────────────────────────────
-def load_checkpoint(
-    checkpoint_path: str,
-    cfg: Config,
-    device: Optional[str] = None,
-) -> SDTModel:
-    """Load a trained SDTModel from a checkpoint file."""
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    ckpt  = torch.load(checkpoint_path, map_location=device, weights_only=False)
-    model = build_model(cfg)
-    model.load_state_dict(ckpt["model_state"])
-    model.to(device)
-    model.eval()
-    print(f"[Inference] Loaded model from {checkpoint_path} (epoch {ckpt.get('epoch', '?')})")
-    return model
-# ─────────────────────────────────────────────────────────────────────────────
-# Batch-level prediction (loader-based)
-# ─────────────────────────────────────────────────────────────────────────────
-@torch.no_grad()
-def predict_loader(
-    model:  SDTModel,
-    loader: DataLoader,
-    device: str = "cpu",
-) -> Tuple[List[int], List[int]]:
+
+from collections import Counter
+from typing import List, Dict, Any
+
+# ── Emotion intensity weights (Russell circumplex model of affect) ─────────────
+INTENSITY = {
+    "joy/excited": 0.85, "joy": 0.80,
+    "sadness":     0.30, "anger":    0.90,
+    "neutral":     0.10, "surprise": 0.75,
+    "fear":        0.70, "disgust":  0.40,
+}
+
+def _intensity(emotion: str) -> float:
+    return INTENSITY.get(emotion.lower(), 0.5)
+
+
+def detect_shifts(predictions: List[Dict]) -> List[Dict]:
     """
-    Run model inference over a DataLoader.
-    Returns (all_labels, all_preds) as flat lists of utterance-level integers.
-    Predictions come ONLY from the model's teacher EmotionClassifier forward pass.
+    Return every utterance where the predicted emotion changed
+    compared to the previous utterance.
+
+    Each entry:
+        idx          : utterance number (1-based)
+        from_emotion : previous emotion
+        to_emotion   : new emotion
+        confidence   : confidence at this utterance (%)
+        ts           : timestamp
+        input_type   : audio_upload / video_upload / text / etc.
     """
-    model.eval()
-    all_labels, all_preds = [], []
+    shifts = []
+    for k in range(1, len(predictions)):
+        prev = predictions[k - 1]
+        curr = predictions[k]
+        if curr["emotion"] != prev["emotion"]:
+            shifts.append({
+                "idx":          curr["idx"],
+                "from_emotion": prev["emotion"],
+                "to_emotion":   curr["emotion"],
+                "confidence":   curr["confidence"],
+                "ts":           curr.get("ts", ""),
+                "input_type":   curr.get("input_type", ""),
+            })
+    return shifts
 
-    for batch in loader:
-        text     = batch["text"].to(device)
-        audio    = batch["audio"].to(device)
-        visual   = batch["visual"].to(device)
-        speakers = batch["speakers"].to(device)
-        labels   = batch["labels"].to(device)
-        mask     = batch["mask"].to(device)
 
-        # ── INFERENCE: model.predict() uses ONLY the teacher classifier ──────
-        preds = model.predict(text, audio, visual, speakers, mask)  # (B, T)
-
-        valid = mask.bool()
-        all_preds.extend(preds[valid].cpu().tolist())
-        all_labels.extend(labels[valid].cpu().tolist())
-
-    return all_labels, all_preds
-# ─────────────────────────────────────────────────────────────────────────────
-# Single-conversation prediction (per-conversation)
-# ─────────────────────────────────────────────────────────────────────────────
-@torch.no_grad()
-def predict_conversation(
-    model:   SDTModel,
-    sample:  ConversationSample,
-    cfg:     Config,
-    device:  str = "cpu",
-) -> Dict:
+def classify_arc(predictions: List[Dict]) -> Dict[str, Any]:
     """
-    Run inference on a single conversation.
-
-    Returns:
-        {
-          'conv_id':    str,
-          'labels':     list of true label IDs,
-          'preds':      list of predicted label IDs,
-          'label_names':list of human-readable true labels,
-          'pred_names': list of human-readable predicted labels,
-          'probs':      (T, C) softmax probabilities,
+    Classify the emotional arc into one of four types:
+      Stable        — one emotion dominates (>= 65% of utterances)
+      Volatile      — emotion changes very often (>= 55% of consecutive pairs)
+      Escalation    — average intensity rises in the second half
+      De-escalation — average intensity falls in the second half
+    """
+    if not predictions:
+        return {
+            "arc_type": "Unknown", "arc_emoji": "❓", "arc_color": "#6b7280",
+            "description": "Not enough predictions to classify the arc.",
+            "dominant_emotion": "—", "intensity_trend": [], "shift_rate": 0.0,
         }
-    """
-    label_names = get_label_names(cfg.data.dataset)
 
-    # Build single-sample loader
-    ds     = MultimodalDataset([sample], max_seq_len=cfg.train.max_seq_len)
-    loader = DataLoader(ds, batch_size=1, collate_fn=collate_fn)
+    emotions    = [p["emotion"]  for p in predictions]
+    intensities = [_intensity(e) for e in emotions]
+    n           = len(predictions)
 
-    model.eval()
-    for batch in loader:
-        text     = batch["text"].to(device)
-        audio    = batch["audio"].to(device)
-        visual   = batch["visual"].to(device)
-        speakers = batch["speakers"].to(device)
-        print(".")
-        mask     = batch["mask"].to(device)
+    dominant = Counter(emotions).most_common(1)[0][0]
+    dom_frac = Counter(emotions)[dominant] / n
 
-        out   = model(text, audio, visual, speakers, mask)
-        logits= out["logits"]          # (1, T, C)
-        probs = torch.softmax(logits, dim=-1).squeeze(0)   # (T, C)
-        preds = logits.argmax(dim=-1).squeeze(0)           # (T,)
+    mid      = max(n // 2, 1)
+    first_h  = sum(intensities[:mid])        / mid
+    second_h = sum(intensities[mid:]) / max(n - mid, 1)
+    delta    = second_h - first_h
 
-        T = batch["mask"][0].sum().item()
-        preds  = preds[:T].cpu().tolist()
-        probs  = probs[:T].cpu().numpy()
-        labels = sample.labels[:T].tolist()
+    changes    = sum(1 for k in range(1, n) if emotions[k] != emotions[k - 1])
+    shift_rate = changes / max(n - 1, 1)
+
+    if dom_frac >= 0.65:
+        arc_type  = "Stable"
+        arc_emoji = "😐"
+        arc_color = "#6b7280"
+        desc = (f"The conversation was emotionally stable. "
+                f"'{dominant}' appeared in {int(dom_frac*100)}% of utterances.")
+
+    elif shift_rate >= 0.55:
+        arc_type  = "Volatile"
+        arc_emoji = "⚡"
+        arc_color = "#d97706"
+        desc = (f"Emotions shifted in {int(shift_rate*100)}% of consecutive utterances — "
+                f"a highly volatile conversation. Most frequent: '{dominant}'.")
+
+    elif delta >= 0.12:
+        arc_type  = "Escalation"
+        arc_emoji = "📈"
+        arc_color = "#dc2626"
+        desc = (f"Emotional intensity escalated across the conversation "
+                f"(Δ intensity = {delta:+.2f}). Dominant emotion: '{dominant}'.")
+
+    elif delta <= -0.12:
+        arc_type  = "De-escalation"
+        arc_emoji = "📉"
+        arc_color = "#16a34a"
+        desc = (f"The conversation became calmer toward the end "
+                f"(Δ intensity = {delta:+.2f}). Dominant emotion: '{dominant}'.")
+
+    else:
+        arc_type  = "Stable"
+        arc_emoji = "😐"
+        arc_color = "#6b7280"
+        desc = (f"No strong emotional trend detected. "
+                f"Balanced conversation; most common emotion: '{dominant}'.")
 
     return {
-        "conv_id":    sample.conv_id,
-        "labels":     labels,
-        "preds":      preds,
-        "label_names": [label_names[l] for l in labels],
-        "pred_names":  [label_names[p] for p in preds],
-        "probs":       probs,
-    } 
-# ─────────────────────────────────────────────────────────────────────────────
-# Full evaluation runner
-# ─────────────────────────────────────────────────────────────────────────────
-def evaluate(
-    checkpoint_path: str,
-    cfg:             Config,
-    test_samples:    List[ConversationSample],
-    save_report:     bool = True,
-) -> Dict:
-    """
-    Load a trained checkpoint, run inference on test set, print & save report.
-    """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model  = load_checkpoint(checkpoint_path, cfg, device)
-    label_names = get_label_names(cfg.data.dataset)
+        "arc_type":         arc_type,
+        "arc_emoji":        arc_emoji,
+        "arc_color":        arc_color,
+        "description":      desc,
+        "dominant_emotion": dominant,
+        "intensity_trend":  [round(v, 3) for v in intensities],
+        "shift_rate":       round(shift_rate, 3),
+    }
 
-    ds     = MultimodalDataset(test_samples, max_seq_len=cfg.train.max_seq_len)
-    loader = DataLoader(ds, batch_size=cfg.train.batch_size, collate_fn=collate_fn)
 
-    all_labels, all_preds = predict_loader(model, loader, device)
-
-    metrics = compute_metrics(all_labels, all_preds, label_names)
-    report  = full_evaluation_report(all_labels, all_preds, label_names,
-                                      dataset=cfg.data.dataset.upper())
-    print(report)
-
-    if save_report:
-        report_path = os.path.join(cfg.train.log_dir, "test_report.txt")
-        with open(report_path, "w") as f:
-            f.write(report)
-        print(f"[Inference] Report saved to {report_path}")
-    return metrics
-# ─────────────────────────────────────────────────────────────────────────────
-# Sample prediction display
-# ─────────────────────────────────────────────────────────────────────────────
-def print_sample_predictions(
-    checkpoint_path: str,
-    cfg:             Config,
-    test_samples:    List[ConversationSample],
-    n_conversations: int = 3,
-) -> None:
-    """Print per-utterance predictions for a few test conversations."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model  = load_checkpoint(checkpoint_path, cfg, device)
-    label_names = get_label_names(cfg.data.dataset)
-    print("\n" + "="*60)
-    print("Added work by darshini in inferenec.py")
-    print(f"  Sample Predictions — {cfg.data.dataset.upper()}")
-    print("="*60)
-    for i, sample in enumerate(test_samples[:n_conversations]):
-        result = predict_conversation(model, sample, cfg, device)
-        print(f"\nConversation: {result['conv_id']}")
-        print(f"  {'Utterance':>10}  {'True Label':>18}  {'Predicted':>18}")
-        print(f"  {'-'*10}  {'-'*18}  {'-'*18}")
-        for j, (lbl, pred) in enumerate(zip(result["label_names"],
-                                             result["pred_names"])):
-            mark = "✓" if lbl == pred else "✗"
-            print(f"  {j+1:>10}  {lbl:>18}  {pred:>18}  {mark}")
-
-    print("="*60 + "\n")
+def build_arc_summary(predictions: List[Dict]) -> Dict[str, Any]:
+    """Single entry-point — returns arc + shifts + total."""
+    return {
+        "arc":    classify_arc(predictions),
+        "shifts": detect_shifts(predictions),
+        "total":  len(predictions),
+    }
+print("Darshini.")
