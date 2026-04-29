@@ -108,7 +108,7 @@ def full_evaluation_report(
         f"Weighted F1 : {f1_score(labels, preds, average='weighted', zero_division=0):.4f}",
         f"{'='*60}\n",
     ]
-    return "\n".join(lines)
+    return "\n\n".join(lines)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
