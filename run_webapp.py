@@ -27,7 +27,7 @@ for _p in [_PROJECT_ROOT, _WEBAPP_DIR]:
         sys.path.insert(0, _p)
 
 CHECKPOINT  = os.path.join("experiments", "checkpoints", "best_model.pt")
-PORT        = 5000
+PORT = int(os.environ.get('PORT', 5000))
 # These dims MUST match real_features.py exactly
 TEXT_DIM    = 1024
 AUDIO_DIM   = 300
