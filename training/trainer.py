@@ -152,6 +152,7 @@ def eval_epoch(
     metrics = compute_metrics(all_labels, all_preds)
     metrics["loss"] = total_loss / n_batches
     return metrics
+    print("Added feature.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
