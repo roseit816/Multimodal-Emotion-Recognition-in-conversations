@@ -1,3 +1,4 @@
+
 """
 Inference module for SDT.
 After training, predictions come ONLY from the trained model's
@@ -30,7 +31,6 @@ def load_checkpoint(
     model.eval()
     print(f"[Inference] Loaded model from {checkpoint_path} (epoch {ckpt.get('epoch', '?')})")
     return model
-    print(".")
 # ─────────────────────────────────────────────────────────────────────────────
 # Batch-level prediction (loader-based)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ def print_sample_predictions(
     model  = load_checkpoint(checkpoint_path, cfg, device)
     label_names = get_label_names(cfg.data.dataset)
     print("\n" + "="*60)
-    print("Added work by darshini")
+    print("Added work by darshini in inferenec.py")
     print(f"  Sample Predictions — {cfg.data.dataset.upper()}")
     print("="*60)
     for i, sample in enumerate(test_samples[:n_conversations]):
