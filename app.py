@@ -538,7 +538,9 @@ if __name__ == "__main__":
     import argparse
     p = argparse.ArgumentParser()
     p.add_argument("--checkpoint", default="../experiments/checkpoints/best_model_meld.pt")
-    p.add_argument("--port", default=5000, type=int)
-    args = p.parse_args()
+    p.add_argument("--port", default=int(os.environ.get('PORT', 5000)), type=int)
+    args = p.parse_args([])
     load_model(args.checkpoint)
-    app.run(host="0.0.0.0", port=args.port, debug=False, use_reloader=False)
+    port = int(os.environ.get('PORT', args.port))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+   
