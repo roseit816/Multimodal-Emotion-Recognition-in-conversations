@@ -20,4 +20,5 @@ librosa>=0.10.0
 soundfile>=0.12.0
 
 # Visual: DenseNet + video frame extraction
+gunicorn>=21.2.0
 opencv-python>=4.5.0
